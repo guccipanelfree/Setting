@@ -138,11 +138,8 @@ jobs:
           import android.service.quicksettings.Tile
           import android.service.quicksettings.TileService
           import android.widget.Toast
-          import java.io.File
 
           class SafeTileService : TileService() {
-
-              private val scriptPath = "/data/local/tmp/gucci.sh"
 
               override fun onStartListening() {
                   super.onStartListening()
@@ -157,28 +154,27 @@ jobs:
                   super.onClick()
                   qsTile?.state = Tile.STATE_ACTIVE
                   qsTile?.updateTile()
-                  toast("Running Safe (7 then 2)…")
+                  toast("Running Gucci_safe.sh…")
 
                   Thread {
                       val result = runAsRoot()
                       Handler(Looper.getMainLooper()).post {
                           qsTile?.state = Tile.STATE_INACTIVE
                           qsTile?.updateTile()
-                          toast(if (result.first == 0) "Safe Done ✓" else "Safe Exit ${result.first}")
+                          toast(if (result == 0) "Safe Done ✓" else "Safe Exit $result")
                       }
                   }.start()
               }
 
-              private fun runAsRoot(): Pair<Int, String> {
+              private fun runAsRoot(): Int {
                   return try {
-                      // Safe Sequence: 7 then 2
-                      val p = ProcessBuilder("su", "-c", "(echo 7; echo 2) | $scriptPath")
+                      // Safe mode: 7 (Driver), then 2 (Menu) in Gucci_safe.sh
+                      val cmd = "cd /data/local/tmp && (echo 7; sleep 2; echo 2; sleep 1) | script -q -c ./Gucci_safe.sh /dev/null"
+                      val p = ProcessBuilder("su", "-c", cmd)
                           .redirectErrorStream(true).start()
-                      val output = p.inputStream.bufferedReader().readText()
-                      val code = p.waitFor()
-                      code to output
+                      p.waitFor()
                   } catch (e: Exception) {
-                      -1 to "Error: ${e.message}"
+                      -1
                   }
               }
 
@@ -198,11 +194,8 @@ jobs:
           import android.service.quicksettings.Tile
           import android.service.quicksettings.TileService
           import android.widget.Toast
-          import java.io.File
 
           class BrutalTileService : TileService() {
-
-              private val scriptPath = "/data/local/tmp/gucci.sh"
 
               override fun onStartListening() {
                   super.onStartListening()
@@ -217,28 +210,27 @@ jobs:
                   super.onClick()
                   qsTile?.state = Tile.STATE_ACTIVE
                   qsTile?.updateTile()
-                  toast("Running Brutal (2 then 7)…")
+                  toast("Running Gucci_brutal.sh…")
 
                   Thread {
                       val result = runAsRoot()
                       Handler(Looper.getMainLooper()).post {
                           qsTile?.state = Tile.STATE_INACTIVE
                           qsTile?.updateTile()
-                          toast(if (result.first == 0) "Brutal Done ✓" else "Brutal Exit ${result.first}")
+                          toast(if (result == 0) "Brutal Done ✓" else "Brutal Exit $result")
                       }
                   }.start()
               }
 
-              private fun runAsRoot(): Pair<Int, String> {
+              private fun runAsRoot(): Int {
                   return try {
-                      // Brutal Sequence: 2 then 7
-                      val p = ProcessBuilder("su", "-c", "(echo 2; echo 7) | $scriptPath")
+                      // Brutal mode: 2 (EXTERNAL mode), then 7 (Driver) in Gucci_brutal.sh
+                      val cmd = "cd /data/local/tmp && (echo 2; sleep 2; echo 7; sleep 1) | script -q -c ./Gucci_brutal.sh /dev/null"
+                      val p = ProcessBuilder("su", "-c", cmd)
                           .redirectErrorStream(true).start()
-                      val output = p.inputStream.bufferedReader().readText()
-                      val code = p.waitFor()
-                      code to output
+                      p.waitFor()
                   } catch (e: Exception) {
-                      -1 to "Error: ${e.message}"
+                      -1
                   }
               }
 
@@ -260,7 +252,6 @@ jobs:
 
           class MainActivity : AppCompatActivity() {
 
-              private val scriptPath = "/data/local/tmp/gucci.sh"
               private lateinit var status: TextView
 
               override fun onCreate(savedInstanceState: Bundle?) {
@@ -270,21 +261,22 @@ jobs:
                   status = findViewById(R.id.status)
                   
                   findViewById<Button>(R.id.testSafeBtn).setOnClickListener { 
-                      runTest("Safe (7 then 2)", "(echo 7; echo 2)") 
+                      runTest("Gucci_safe.sh", "Safe (7 then 2)", "(echo 7; sleep 2; echo 2; sleep 1)") 
                   }
                   
                   findViewById<Button>(R.id.testBrutalBtn).setOnClickListener { 
-                      runTest("Brutal (2 then 7)", "(echo 2; echo 7)") 
+                      runTest("Gucci_brutal.sh", "Brutal (2 then 7)", "(echo 2; sleep 2; echo 7; sleep 1)") 
                   }
 
-                  status.text = "Target: $scriptPath\nReady to test."
+                  status.text = "Ready to test."
               }
 
-              private fun runTest(label: String, sequence: String) {
-                  status.text = "Running $label..."
+              private fun runTest(scriptName: String, label: String, sequence: String) {
+                  status.text = "Running $label on $scriptName..."
                   Thread {
                       val out = try {
-                          val p = ProcessBuilder("su", "-c", "$sequence | $scriptPath")
+                          val cmd = "cd /data/local/tmp && $sequence | script -q -c ./$scriptName /dev/null"
+                          val p = ProcessBuilder("su", "-c", cmd)
                               .redirectErrorStream(true).start()
                           p.inputStream.bufferedReader().readText() + "\nexit=${p.waitFor()}"
                       } catch (e: Exception) {
@@ -307,13 +299,78 @@ jobs:
               <Button android:id="@+id/testSafeBtn"
                   android:layout_width="match_parent"
                   android:layout_height="wrap_content"
-                  android:text="Test Safe (7 then 2)"/>
+                  android:text="Test Safe (Gucci_safe.sh)"/>
 
               <Button android:id="@+id/testBrutalBtn"
                   android:layout_width="match_parent"
                   android:layout_height="wrap_content"
                   android:layout_marginTop="8dp"
-                  android:text="Test Brutal (2 then 7)"/>
+                  android:text="Test Brutal (Gucci_brutal.sh)"/>
+
+              <TextView android:id="@+id/status"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:paddingTop="16dp"
+                  android:typeface="monospace"
+                  android:textSize="12sp"/>
+          </LinearLayout>
+          EOF
+
+          cat > app/src/main/res/drawable/ic_tile.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#FFFFFFFF"
+                  android:pathData="M4,4h16v16H4z M6,8l3,4l-3,4h2l3,-4l-3,-4z M12,15h6v2h-6z"/>
+          </vector>
+          EOF
+
+          cat > app/src/main/res/values/strings.xml <<'EOF'
+          <resources><string name="app_name">SH Tile</string></resources>
+          EOF
+
+      - name: Build debug APK
+        run: gradle assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SHTile-debug
+          path: app/build/outputs/apk/debug/app-debug.apkbel: String, sequence: String) {
+                  status.text = "Running $label on $scriptName..."
+                  Thread {
+                      val out = try {
+                          val cmd = "cd /data/local/tmp && $sequence | script -q -c ./$scriptName /dev/null"
+                          val p = ProcessBuilder("su", "-c", cmd)
+                              .redirectErrorStream(true).start()
+                          p.inputStream.bufferedReader().readText() + "\nexit=${p.waitFor()}"
+                      } catch (e: Exception) {
+                          "Error: ${e.message}"
+                      }
+                      runOnUiThread { status.text = "$label Result:\n\n$out" }
+                  }.start()
+              }
+          }
+          EOF
+
+          cat > app/src/main/res/layout/activity_main.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical"
+              android:padding="24dp"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent">
+
+              <Button android:id="@+id/testSafeBtn"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:text="Test Safe (Gucci_safe.sh)"/>
+
+              <Button android:id="@+id/testBrutalBtn"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="8dp"
+                  android:text="Test Brutal (Gucci_brutal.sh)"/>
 
               <TextView android:id="@+id/status"
                   android:layout_width="match_parent"
